@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot API Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 600px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+        }
+
+        .message.bot .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+
+        .message.error .message-content {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            outline: none;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input input:focus {
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .quota-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🤖 Chatbot API</h1>
+            <p>Powered by Google AI</p>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                <div class="message-content">
+                    Hello! I'm your AI assistant. How can I help you today?
+                </div>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            AI is thinking...
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="chat-input">
+            <div class="input-group">
+                <input type="text" id="messageInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+                <button class="send-btn" onclick="sendMessage()" id="sendBtn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let conversationHistory = [];
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function addMessage(content, isUser = false, isError = false) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : isError ? 'error' : 'bot'}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            messageDiv.appendChild(contentDiv);
+            messagesContainer.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (show) {
+                loading.style.display = 'block';
+                sendBtn.disabled = true;
+                sendBtn.textContent = 'Sending...';
+            } else {
+                loading.style.display = 'none';
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send';
+            }
+        }
+
+        function showError(message, isQuotaError = false) {
+            const error = document.getElementById('error');
+            if (isQuotaError) {
+                error.innerHTML = `
+                    <div class="quota-warning">
+                        <strong>⚠️ API Quota Exceeded</strong><br>
+                        ${message}<br>
+                        <small>Quotas reset daily. Please try again later.</small>
+                    </div>
+                `;
+            } else {
+                error.textContent = message;
+            }
+            setTimeout(() => {
+                error.innerHTML = '';
+            }, 10000);
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage(message, true);
+            input.value = '';
+            
+            // Show loading
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/chat/with-context/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_history: conversationHistory
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Add bot response to chat
+                    addMessage(data.response);
+                    conversationHistory = data.conversation_history;
+                } else {
+                    // Handle different error types
+                    if (response.status === 429 || data.status === 'quota_exceeded') {
+                        showError(data.error || 'API quota exceeded', true);
+                        addMessage('Sorry, I\'ve reached my daily limit. Please try again tomorrow!', false, true);
+                    } else if (response.status === 503 || data.status === 'model_error') {
+                        showError(data.error || 'AI model not available');
+                        addMessage('Sorry, the AI service is currently unavailable. Please try again later.', false, true);
+                    } else {
+                        showError(data.error || 'An error occurred');
+                        addMessage('Sorry, something went wrong. Please try again.', false, true);
+                    }
+                }
+            } catch (error) {
+                showError('Network error. Please check your connection and try again.');
+                addMessage('Sorry, I couldn\'t connect to the server. Please try again.', false, true);
+                console.error('Error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html> 
