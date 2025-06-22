@@ -18,10 +18,12 @@ pip install -r requirements.txt
 ```
 
 ### 2. Configure Google AI API Key
-The API key is already configured in `chatbot/settings.py`:
-```python
-GOOGLE_AI_API_KEY = "AIzaSyA3cAmr-k0oCn-Dq6cG_YAdzC00EFP83Bg"
+Create a `.env` file in the project root and add your Google AI API key:
+```bash
+echo "GOOGLE_AI_API_KEY=your_api_key_here" > .env
 ```
+
+**Important**: Never commit your API key to version control. The `.env` file is already in `.gitignore`.
 
 ### 3. Run Migrations
 ```bash
